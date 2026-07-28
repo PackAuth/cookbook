@@ -89,14 +89,36 @@ export async function run({ pa, log, stamp, previous }) {
     log(`re-run ${again.run_id} — ${JSON.stringify(again.finding_counts)}`);
   }
 
+  /*
+   * WHO ASKED IS PART OF THE APPROVAL.
+   *
+   * `requested_by` is what makes separation of duties checkable, and for a
+   * high-risk authority it is required: the API refuses an approval whose
+   * requester is unknown rather than granting one it cannot check
+   * (constitution §0.13).
+   *
+   * This recipe used to omit it, and it worked — which is exactly the problem.
+   * It was teaching integrators to build a flow where one person could request
+   * a regulated label approval and sign it themselves, and the published
+   * example would have been the thing they copied.
+   */
+  const brandLead = await pa.createStakeholder({
+    body: { type: "brand_owner", name: `Brand lead ${stamp}`, email: `brand-${stamp}@example.test` },
+  });
+
   const primary = await pa.requestApproval({
-    body: { manifest_id, scope: "approved_for_print", jurisdictions: ["UK"] },
+    body: {
+      manifest_id,
+      scope: "approved_for_print",
+      jurisdictions: ["UK"],
+      requested_by: brandLead.stakeholder_id,
+    },
   });
   await pa.approveApproval({
     approval_id: primary.approval_id,
     body: { stakeholder_id: reviewer.stakeholder_id, authority_scope: "regulatory_label_approval" },
   });
-  log("label approved by the regulatory reviewer");
+  log("label approved by the regulatory reviewer, on the brand lead's request");
 
   // And then every other duty, each by somebody who holds ITS authority.
   for (const [role, authority, scope] of DUTIES) {
@@ -110,7 +132,12 @@ export async function run({ pa, log, stamp, previous }) {
       stakeholder_id: who.stakeholder_id,
       body: { authority_scopes: [authority] },
     });
-    const req = await pa.requestApproval({ body: { manifest_id, scope, jurisdictions: ["UK"] } });
+    // Requested by the brand lead, signed by the holder — never the same
+    // person. Three of these six authorities are high risk and the API
+    // refuses them outright without a recorded requester.
+    const req = await pa.requestApproval({
+      body: { manifest_id, scope, jurisdictions: ["UK"], requested_by: brandLead.stakeholder_id },
+    });
     await pa.approveApproval({
       approval_id: req.approval_id,
       body: { stakeholder_id: who.stakeholder_id, authority_scope: authority },

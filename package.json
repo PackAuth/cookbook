@@ -1,0 +1,10 @@
+{
+  "name": "@packauth/cookbook",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node run.mjs",
+    "test": "node run.mjs"
+  }
+}

@@ -81,7 +81,32 @@ export async function run({ pa, log, stamp, previous }) {
     });
     if (!rem.cleared) needRerun++;
   }
-  log(`${open.length} blocking finding(s): ${open.length - needRerun} cleared by review, ${needRerun} need a re-run`);
+  /*
+   * WHOSE RULE STOPPED YOU, because the answer changes what you do next.
+   *
+   * A statutory finding is a regulator's, applies to every seller in that
+   * market whatever channel they use, and cannot be waived by anyone. A
+   * contractual one is a named counterparty's — a marketplace refusing to list
+   * the offer or accept the stock — and it binds only while you trade through
+   * them, may exceed what the law requires, and is a conversation with an
+   * account manager rather than a compliance question.
+   *
+   * Recording a review against either is legitimate. Reading one as the other
+   * is what costs money: changing a product you never needed to change, or
+   * shipping something unlawful on the assumption you can argue it.
+   */
+  const byAuthority = open.reduce((acc, f) => {
+    acc[f.authority_class] = (acc[f.authority_class] ?? 0) + 1;
+    return acc;
+  }, {});
+  const split = Object.entries(byAuthority)
+    .map(([cls, n]) => `${n} ${cls}`)
+    .join(", ");
+
+  log(
+    `${open.length} blocking finding(s)${split ? ` (${split})` : ""}: ` +
+      `${open.length - needRerun} cleared by review, ${needRerun} need a re-run`
+  );
   if (needRerun) {
     // Not a formality. The re-run is what proves the fix worked — a finding
     // still present afterwards was never actually remediated.
